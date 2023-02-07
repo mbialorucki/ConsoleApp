@@ -20,26 +20,26 @@
             //remove blank and too shor lines
             importedLines = importedLines.Where(importedLine => !String.IsNullOrEmpty(importedLine) && importedLine.Split(';').Length >= 7).ToList();
 
-            //map databases objects
-            databases = importedLines.Where(importedLine => importedLine.ToLower().StartsWith("database"))
-                    .Select(dbLine => dbLine.Split(';'))
-                    .Select(db => new Database() { Type = db[0], Name = db[1] })
-                    .ToList();
+            databases = MapDatabaseObjects(importedLines);
+            tables = MapTablesObjects(importedLines);
+            columns = MapColumnsObjects(importedLines);
 
-            //map tables objects
-            tables = importedLines.Where(importedLine => importedLine.ToLower().StartsWith("table"))
-                    .Select(tblLine => tblLine.Split(';'))
-                    .Select(tbl => new Table()
-                    {
-                        Type = tbl[0],
-                        Name = tbl[1],
-                        Schema = tbl[2],
-                        ParentName = tbl[3],
-                        ParentType = tbl[4]
-                    })
-                    .ToList();
+            //add columns list to tables objects 
+            tables.ToList().ForEach(tbl => tbl.Columns = columns.Where(cl => cl.ParentName.ToLower() == tbl.Name.ToLower()).ToList());
+            //add table objects to databases objects
+            databases.ToList().ForEach(db => db.Tables = tables.Where(tbl => tbl.ParentName.ToLower() == db.Name.ToLower()).ToList());
+
+            // clear and correct imported data
+            ClearImportedData(databases);
+
+            return databases;
+
+        }
+
+        private IList<Column> MapColumnsObjects(List<string> importedLines)
+        {
             //map columns objects
-            columns = importedLines.Where(importedLine => importedLine.ToLower().StartsWith("column"))
+            return importedLines.Where(importedLine => importedLine.ToLower().StartsWith("column"))
                     .Select(clnLine => clnLine.Split(';'))
                     .Select(cln => new Column()
                     {
@@ -52,17 +52,33 @@
                         IsNullable = cln[6]
                     })
                     .ToList();
+        }
 
-            //add columns list to tables objects 
-            tables.ToList().ForEach(tbl => tbl.Columns = columns.Where(cl => cl.ParentName.ToLower() == tbl.Name.ToLower()).ToList());
-            //add table objects to databases objects
-            databases.ToList().ForEach(db => db.Tables = tables.Where(tbl => tbl.ParentName.ToLower() == db.Name.ToLower()).ToList());
+        private IList<Table> MapTablesObjects(List<string> importedLines)
+        {
 
-            // clear and correct imported data
-            ClearImportedData(databases);
+            //map tables objects
+            return importedLines.Where(importedLine => importedLine.ToLower().StartsWith("table"))
+                    .Select(tblLine => tblLine.Split(';'))
+                    .Select(tbl => new Table()
+                    {
+                        Type = tbl[0],
+                        Name = tbl[1],
+                        Schema = tbl[2],
+                        ParentName = tbl[3],
+                        ParentType = tbl[4]
+                    })
+                    .ToList();
+        }
 
-            return databases;
+        private IList<Database> MapDatabaseObjects(List<string> importedLines)
+        {
 
+            //map databases objects
+            return importedLines.Where(importedLine => importedLine.ToLower().StartsWith("database"))
+                    .Select(dbLine => dbLine.Split(';'))
+                    .Select(db => new Database() { Type = db[0], Name = db[1] })
+                    .ToList();
         }
 
         private void ClearImportedData(IList<Database> ImportedObjects)
